@@ -12,6 +12,7 @@ use crate::assets;
 use crate::catalogue::{Patch, Remote};
 use crate::install::Step;
 use crate::palette::{self, Palette};
+use crate::update;
 
 const SIDEBAR_WIDTH: f32 = 250.0;
 const LOGO_HEIGHT: f32 = 44.0;
@@ -63,9 +64,33 @@ fn sidebar(app: &mut LauncherApp, ui: &mut Ui, palette: &Palette) {
                 app.show_options = true;
             }
         });
+        update_banner(app, ui);
         ui.separator();
         ui.with_layout(Layout::top_down_justified(Align::Min), |ui| game_list(app, ui));
     });
+}
+
+/// Nouvelle version en cours de téléchargement, puis prête à être installée.
+fn update_banner(app: &LauncherApp, ui: &mut Ui) {
+    match app.update.step() {
+        update::Step::Downloading { version, done, total } => {
+            ui.add_space(6.0);
+            let progress = total.map_or(0.0, |total| done as f32 / total as f32);
+            ui.add(ProgressBar::new(progress).desired_height(6.0));
+            ui.label(RichText::new(format!("Téléchargement de la version {version}…")).small());
+        }
+        update::Step::Ready { version, .. } => {
+            ui.add_space(6.0);
+            // Pas de redémarrage au milieu de l'installation d'un patch.
+            let installing = app.install.as_ref().is_some_and(|install| install.is_running());
+            let restart = Button::new(RichText::new("Redémarrer").color(Color32::WHITE)).fill(ui.visuals().hyperlink_color);
+            if ui.add_enabled(!installing, restart).clicked() {
+                app.update.restart();
+            }
+            ui.label(RichText::new(format!("La version {version} de Gllia est prête.")).small());
+        }
+        _ => {}
+    }
 }
 
 fn game_list(app: &mut LauncherApp, ui: &mut Ui) {

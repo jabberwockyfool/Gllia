@@ -1,12 +1,14 @@
 use egui::{Align2, RichText, Slider};
 
-use crate::app::{LauncherApp, Screen};
+use crate::app::{LauncherApp, Screen, VERSION};
 use crate::palette::{self, Appearance};
+use crate::update::{self, Update};
 
 pub fn show(app: &mut LauncherApp, ctx: &egui::Context) {
     let mut open = true;
     let mut change_theme = false;
     let mut reload = false;
+    let mut check_update = false;
 
     egui::Window::new("Options")
         .open(&mut open)
@@ -44,10 +46,24 @@ pub fn show(app: &mut LauncherApp, ctx: &egui::Context) {
             ui.label("Liste des membres");
             ui.text_edit_singleline(&mut app.config.members_url);
             reload = ui.button("Recharger").clicked();
+
+            section(ui, "Mise à jour");
+            ui.label(match app.update.step() {
+                update::Step::Disabled => "Pas de mise à jour automatique en version de développement.".to_owned(),
+                update::Step::Checking => "Recherche d'une nouvelle version…".to_owned(),
+                update::Step::UpToDate => format!("Gllia est à jour ({VERSION})."),
+                update::Step::Downloading { version, .. } => format!("Téléchargement de la version {version}…"),
+                update::Step::Ready { version, .. } => format!("La version {version} est prête : cliquez sur « Redémarrer »."),
+                update::Step::Failed(error) => format!("Mise à jour impossible : {error}"),
+            });
+            check_update = ui.add_enabled(!app.update.is_busy(), egui::Button::new("Vérifier")).clicked();
         });
 
     if reload {
         app.reload(ctx);
+    }
+    if check_update {
+        app.update = Update::check(ctx);
     }
     if change_theme {
         app.screen = Screen::ThemePicker;

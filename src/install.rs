@@ -102,7 +102,7 @@ fn latest_github_installer(owner: &str, name: &str) -> Option<String> {
         .map(|asset| asset.browser_download_url)
 }
 
-fn download(url: &str, mut progress: impl FnMut(u64, Option<u64>)) -> Result<PathBuf, String> {
+pub fn download(url: &str, mut progress: impl FnMut(u64, Option<u64>)) -> Result<PathBuf, String> {
     let response = ureq::get(url).call().map_err(|e| format!("téléchargement impossible : {e}"))?;
     let total = response.header("Content-Length").and_then(|size| size.parse().ok());
 

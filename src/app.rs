@@ -7,6 +7,7 @@ use crate::install::Install;
 use crate::layouts::Layout;
 use crate::music::Music;
 use crate::stores::{self, Installed};
+use crate::update::Update;
 use crate::{link, palette, screens, windows};
 
 /// Affiché sous le logo.
@@ -39,6 +40,7 @@ pub struct LauncherApp {
     pub install: Option<Install>,
     pub link: Option<String>,
     pub links: Option<Receiver<String>>,
+    pub update: Update,
 }
 
 impl LauncherApp {
@@ -61,6 +63,7 @@ impl LauncherApp {
             install: None,
             link,
             links: link::listen(ctx),
+            update: Update::check(ctx),
         }
     }
 

@@ -13,6 +13,7 @@ mod music;
 mod palette;
 mod screens;
 mod stores;
+mod update;
 mod windows;
 
 use app::LauncherApp;
