@@ -5,8 +5,6 @@ use std::process::Command;
 use std::sync::{Arc, Mutex};
 use std::thread;
 
-use serde::Deserialize;
-
 use crate::xdelta;
 
 #[derive(Clone)]
@@ -85,44 +83,7 @@ fn patch_iso(patch_url: &str, iso: &Path, game_title: &str, set: &dyn Fn(Step)) 
 
 fn find_installer(download_url: &str) -> Option<String> {
     let path = download_url.split(['?', '#']).next()?;
-    if path.to_lowercase().ends_with(".exe") {
-        return Some(download_url.to_owned());
-    }
-
-    let repo = path.strip_prefix("https://github.com/")?;
-    let mut parts = repo.split('/');
-    let (owner, name) = (parts.next()?, parts.next()?);
-    if parts.next() != Some("releases") {
-        return None;
-    }
-    latest_github_installer(owner, name)
-}
-
-#[derive(Deserialize)]
-struct Release {
-    draft: bool,
-    assets: Vec<Asset>,
-}
-
-#[derive(Deserialize)]
-struct Asset {
-    name: String,
-    browser_download_url: String,
-}
-
-fn latest_github_installer(owner: &str, name: &str) -> Option<String> {
-    let releases: Vec<Release> = ureq::get(&format!("https://api.github.com/repos/{owner}/{name}/releases"))
-        .set("User-Agent", "Gllia")
-        .call()
-        .ok()?
-        .into_json()
-        .ok()?;
-    releases
-        .into_iter()
-        .filter(|release| !release.draft)
-        .flat_map(|release| release.assets)
-        .find(|asset| asset.name.to_lowercase().ends_with(".exe"))
-        .map(|asset| asset.browser_download_url)
+    path.to_lowercase().ends_with(".exe").then(|| download_url.to_owned())
 }
 
 pub fn download(url: &str, mut progress: impl FnMut(u64, Option<u64>)) -> Result<PathBuf, String> {

@@ -76,6 +76,50 @@ impl Patch {
     }
 }
 
+pub fn resolve_downloads(mut patches: Vec<Patch>) -> Vec<Patch> {
+    for patch in &mut patches {
+        if let Some(file) = latest_release_file(&patch.download_url) {
+            patch.download_url = file;
+        }
+    }
+    patches
+}
+
+#[derive(Deserialize)]
+struct Release {
+    draft: bool,
+    assets: Vec<Asset>,
+}
+
+#[derive(Deserialize)]
+struct Asset {
+    name: String,
+    browser_download_url: String,
+}
+
+fn latest_release_file(download_url: &str) -> Option<String> {
+    let path = download_url.split(['?', '#']).next()?;
+    let repo = path.strip_prefix("https://github.com/")?;
+    let mut parts = repo.split('/');
+    let (owner, name) = (parts.next()?, parts.next()?);
+    if parts.next() != Some("releases") || parts.next() == Some("download") {
+        return None;
+    }
+
+    let releases: Vec<Release> = ureq::get(&format!("https://api.github.com/repos/{owner}/{name}/releases"))
+        .set("User-Agent", "Gllia")
+        .call()
+        .ok()?
+        .into_json()
+        .ok()?;
+    releases
+        .into_iter()
+        .filter(|release| !release.draft)
+        .flat_map(|release| release.assets)
+        .find(|asset| asset.name.to_lowercase().ends_with(".exe") || crate::xdelta::is_patch_url(&asset.name))
+        .map(|asset| asset.browser_download_url)
+}
+
 fn cut_at_word(text: &str, max_chars: usize) -> String {
     if text.chars().count() <= max_chars {
         return text.to_owned();
@@ -103,12 +147,16 @@ pub enum Remote<T> {
 
 impl<T: DeserializeOwned + Send + 'static> Remote<T> {
     pub fn fetch(source: &str, ctx: &egui::Context) -> Self {
+        Self::fetch_then(source, ctx, |data| data)
+    }
+
+    pub fn fetch_then(source: &str, ctx: &egui::Context, then: impl FnOnce(T) -> T + Send + 'static) -> Self {
         let (sender, receiver) = mpsc::channel();
         let source = source.to_owned();
         let ctx = ctx.clone();
 
         thread::spawn(move || {
-            let _ = sender.send(load(&source));
+            let _ = sender.send(load(&source).map(then));
             ctx.request_repaint();
         });
 

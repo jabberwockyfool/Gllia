@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::mpsc::Receiver;
 
-use crate::catalogue::{Member, Patch, Remote};
+use crate::catalogue::{self, Member, Patch, Remote};
 use crate::config::Config;
 use crate::install::Install;
 use crate::layouts::Layout;
@@ -49,7 +49,7 @@ impl LauncherApp {
         palette::apply(ctx, config.appearance);
 
         Self {
-            patches: Remote::fetch(&config.patches_url, ctx),
+            patches: Remote::fetch_then(&config.patches_url, ctx, catalogue::resolve_downloads),
             members: Remote::fetch(&config.members_url, ctx),
             detected: HashMap::new(),
             selected: None,
@@ -88,7 +88,7 @@ impl LauncherApp {
     }
 
     pub fn reload(&mut self, ctx: &egui::Context) {
-        self.patches = Remote::fetch(&self.config.patches_url, ctx);
+        self.patches = Remote::fetch_then(&self.config.patches_url, ctx, catalogue::resolve_downloads);
         self.members = Remote::fetch(&self.config.members_url, ctx);
     }
 
