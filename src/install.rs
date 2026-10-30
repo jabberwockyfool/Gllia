@@ -7,11 +7,17 @@ use std::thread;
 
 use serde::Deserialize;
 
+use crate::xdelta;
+
 #[derive(Clone)]
 pub enum Step {
     Downloading(u64, Option<u64>),
     Installing,
+    /// Patch d'ISO en cours : octets de l'ISO française déjà écrits.
+    Patching(u64),
     Done,
+    /// ISO française créée, à cet endroit.
+    Created(PathBuf),
     Browser,
     Failed(String),
 }
@@ -22,7 +28,8 @@ pub struct Install {
 }
 
 impl Install {
-    pub fn start(slug: &str, download_url: String, game_folder: PathBuf, ctx: &egui::Context) -> Self {
+    /// `target` est le dossier du jeu, ou l'ISO d'origine pour un patch d'ISO.
+    pub fn start(slug: &str, download_url: String, target: PathBuf, game_title: String, ctx: &egui::Context) -> Self {
         let step = Arc::new(Mutex::new(Step::Downloading(0, None)));
         let shared = step.clone();
         let ctx = ctx.clone();
@@ -32,20 +39,17 @@ impl Install {
                 *shared.lock().unwrap() = new;
                 ctx.request_repaint();
             };
-            let Some(installer_url) = find_installer(&download_url) else {
-                ctx.open_url(egui::OpenUrl::new_tab(&download_url));
-                set(Step::Browser);
-                return;
+            let result = if xdelta::is_patch_url(&download_url) {
+                patch_iso(&download_url, &target, &game_title, &set)
+            } else {
+                let Some(installer_url) = find_installer(&download_url) else {
+                    ctx.open_url(egui::OpenUrl::new_tab(&download_url));
+                    set(Step::Browser);
+                    return;
+                };
+                install(&installer_url, &target, &set)
             };
-            let result = download(&installer_url, |done, total| set(Step::Downloading(done, total)))
-                .and_then(|exe| {
-                    set(Step::Installing);
-                    run(&exe, &game_folder)
-                });
-            set(match result {
-                Ok(()) => Step::Done,
-                Err(error) => Step::Failed(error),
-            });
+            set(result.unwrap_or_else(Step::Failed));
         });
 
         Self { slug: slug.to_owned(), step }
@@ -56,8 +60,27 @@ impl Install {
     }
 
     pub fn is_running(&self) -> bool {
-        matches!(self.step(), Step::Downloading(..) | Step::Installing)
+        matches!(self.step(), Step::Downloading(..) | Step::Installing | Step::Patching(_))
     }
+}
+
+fn install(installer_url: &str, game_folder: &Path, set: &dyn Fn(Step)) -> Result<Step, String> {
+    let exe = download(installer_url, |done, total| set(Step::Downloading(done, total)))?;
+    set(Step::Installing);
+    run(&exe, game_folder)?;
+    Ok(Step::Done)
+}
+
+fn patch_iso(patch_url: &str, iso: &Path, game_title: &str, set: &dyn Fn(Step)) -> Result<Step, String> {
+    let output = xdelta::output_path(iso, game_title);
+    if output == iso {
+        return Err("cette ISO est déjà patchée : choisissez l'ISO d'origine".to_owned());
+    }
+    let patch = download(patch_url, |done, total| set(Step::Downloading(done, total)))?;
+    set(Step::Patching(0));
+    let result = xdelta::apply(iso, &patch, &output, |written| set(Step::Patching(written)));
+    let _ = fs::remove_file(&patch);
+    result.map(|()| Step::Created(output))
 }
 
 fn find_installer(download_url: &str) -> Option<String> {

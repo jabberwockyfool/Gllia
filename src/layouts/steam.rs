@@ -192,25 +192,29 @@ fn details(app: &mut LauncherApp, ui: &mut Ui, patch: &Patch, palette: &Palette)
     let folder = app.config.games.get(&patch.slug).cloned();
     let install = app.install.as_ref().filter(|install| install.slug == patch.slug).map(|install| install.step());
     let busy = app.install.as_ref().is_some_and(|install| install.is_running());
+    // Patch d'ISO (PS2…) : on choisit l'ISO au lieu du dossier du jeu.
+    let iso = patch.is_iso_patch();
 
     ui.scope(|ui| {
         ui.spacing_mut().button_padding = vec2(18.0, 10.0);
         ui.with_layout(Layout::right_to_left(Align::Min), |ui| {
             let can_install = folder.is_some() && !patch.download_url.is_empty() && !busy;
-            let label = match install {
-                Some(Step::Done) => "Réinstaller le patch",
-                _ => "Installer le patch",
+            let label = match (iso, &install) {
+                (true, _) => "Patcher l'ISO",
+                (false, Some(Step::Done)) => "Réinstaller le patch",
+                (false, _) => "Installer le patch",
             };
             let download = Button::new(RichText::new(label).size(18.0).color(Color32::WHITE)).fill(palette.accent);
             if ui.add_enabled(can_install, download).clicked() {
                 app.install_patch(&patch.slug, ui.ctx());
             }
 
+            let (add, remove) = if iso { ("Ajouter l'ISO", "Changer d'ISO") } else { ("Ajouter le jeu", "Retirer le jeu") };
             if folder.is_some() {
-                if ui.button(RichText::new("Retirer le jeu").size(18.0)).clicked() {
+                if ui.add_enabled(!busy, Button::new(RichText::new(remove).size(18.0))).clicked() {
                     app.remove_game(&patch.slug);
                 }
-            } else if ui.button(RichText::new("Ajouter le jeu").size(18.0)).clicked() {
+            } else if ui.button(RichText::new(add).size(18.0)).clicked() {
                 app.add_game(&patch.slug);
             }
         });
@@ -233,8 +237,21 @@ fn details(app: &mut LauncherApp, ui: &mut Ui, patch: &Patch, palette: &Palette)
                 ui.label("Installation…");
             });
         }
+        Some(Step::Patching(written)) => {
+            ui.horizontal(|ui| {
+                ui.spinner();
+                ui.label(format!("Création de l'ISO française… {:.1} Go", written as f32 / 1_073_741_824.0));
+            });
+        }
         Some(Step::Done) => {
             ui.label("Patch installé. Lancez le jeu normalement.");
+        }
+        Some(Step::Created(output)) => {
+            ui.label("ISO française créée : lancez-la dans votre émulateur.");
+            ui.label(RichText::new(output.display().to_string()).small());
+            if ui.small_button("Afficher dans l'explorateur").clicked() {
+                let _ = std::process::Command::new("explorer").arg("/select,").arg(&output).spawn();
+            }
         }
         Some(Step::Browser) => {
             ui.label(RichText::new("Pas d'installeur pour ce patch : la page de téléchargement s'est ouverte dans le navigateur.").small());
@@ -245,7 +262,9 @@ fn details(app: &mut LauncherApp, ui: &mut Ui, patch: &Patch, palette: &Palette)
         None => {}
     }
     let hint = match (&folder, app.detected.get(&patch.slug)) {
+        (Some(iso_file), _) if iso => format!("ISO d'origine : {}", iso_file.display()),
         (Some(folder), _) => format!("Dossier du jeu : {}", folder.display()),
+        (None, _) if iso => "Ajoutez votre ISO du jeu : une copie française sera créée à côté, l'originale reste intacte.".to_owned(),
         (None, Some(found)) => format!("Trouvé sur {} : {}", found.store.name(), found.path.display()),
         (None, None) => "Ajoutez le jeu pour pouvoir installer le patch.".to_owned(),
     };

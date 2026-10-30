@@ -62,6 +62,12 @@ impl Patch {
         }
     }
 
+    /// Patch à appliquer sur une ISO (lien vers un fichier .xdelta) plutôt
+    /// qu'installeur à lancer dans le dossier du jeu.
+    pub fn is_iso_patch(&self) -> bool {
+        crate::xdelta::is_patch_url(&self.download_url)
+    }
+
     pub fn kind_label(&self) -> &'static str {
         match self.kind.as_str() {
             "jeu" => "Jeu",

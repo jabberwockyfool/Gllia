@@ -115,19 +115,32 @@ impl LauncherApp {
     }
 
     /// « Ajouter le jeu » : prend le dossier trouvé sur Steam ou GOG, sinon
-    /// demande à l'utilisateur où est installé le jeu.
+    /// demande à l'utilisateur où est installé le jeu. Pour un patch d'ISO,
+    /// demande l'ISO d'origine.
     pub fn add_game(&mut self, slug: &str) {
-        let folder = match self.detected.get(slug) {
-            Some(found) => Some(found.path.clone()),
-            None => rfd::FileDialog::new()
-                .set_title("Où est installé le jeu ?")
-                .pick_folder(),
+        let iso_patch = self.patch(slug).is_some_and(Patch::is_iso_patch);
+        let target = if iso_patch {
+            rfd::FileDialog::new()
+                .set_title("Choisissez l'ISO d'origine du jeu")
+                .add_filter("Image disque", &["iso"])
+                .pick_file()
+        } else if let Some(found) = self.detected.get(slug) {
+            Some(found.path.clone())
+        } else {
+            rfd::FileDialog::new().set_title("Où est installé le jeu ?").pick_folder()
         };
 
-        if let Some(folder) = folder {
-            self.config.games.insert(slug.to_owned(), folder);
+        if let Some(target) = target {
+            self.config.games.insert(slug.to_owned(), target);
             self.config.save();
         }
+    }
+
+    fn patch(&self, slug: &str) -> Option<&Patch> {
+        let Remote::Ready(patches) = &self.patches else {
+            return None;
+        };
+        patches.iter().find(|patch| patch.slug == slug)
     }
 
     pub fn remove_game(&mut self, slug: &str) {
@@ -139,14 +152,10 @@ impl LauncherApp {
         if self.install.as_ref().is_some_and(Install::is_running) {
             return;
         }
-        let Remote::Ready(patches) = &self.patches else {
-            return;
-        };
-        let Some(download_url) = patches
-            .iter()
-            .find(|patch| patch.slug == slug)
-            .map(|patch| patch.download_url.clone())
-            .filter(|url| !url.is_empty())
+        let Some((download_url, title)) = self
+            .patch(slug)
+            .filter(|patch| !patch.download_url.is_empty())
+            .map(|patch| (patch.download_url.clone(), patch.game_title().to_owned()))
         else {
             return;
         };
@@ -154,8 +163,8 @@ impl LauncherApp {
         if !self.config.games.contains_key(slug) {
             self.add_game(slug);
         }
-        if let Some(folder) = self.config.games.get(slug).cloned() {
-            self.install = Some(Install::start(slug, download_url, folder, ctx));
+        if let Some(target) = self.config.games.get(slug).cloned() {
+            self.install = Some(Install::start(slug, download_url, target, title, ctx));
         }
     }
 

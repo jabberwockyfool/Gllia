@@ -15,6 +15,7 @@ mod screens;
 mod stores;
 mod update;
 mod windows;
+mod xdelta;
 
 use app::LauncherApp;
 
