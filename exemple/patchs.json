@@ -1,0 +1,50 @@
+[
+  {
+    "slug": "chaos-child-fr",
+    "title": "CHAOS;CHILD",
+    "kind": "vn",
+    "status": "Terminé",
+    "progress": 100,
+    "quote": "Shibuya, six ans après.",
+    "description": "Traduction française complète du visual novel, à partir du patch anglais de Committee of Zero.",
+    "logo": "https://cdn.cloudflare.steamstatic.com/steam/apps/970570/logo.png",
+    "background": "https://cdn.cloudflare.steamstatic.com/steam/apps/970570/library_hero.jpg",
+    "downloadUrl": "https://sainteresia.vercel.app/patchs/chaos-child-fr",
+    "steamAppId": 970570
+  },
+  {
+    "slug": "chaos-head-noah",
+    "title": "CHAOS;HEAD NOAH",
+    "kind": "vn",
+    "status": "En cours",
+    "progress": 40,
+    "quote": "",
+    "description": "Traduction française en cours.",
+    "logo": "https://cdn.cloudflare.steamstatic.com/steam/apps/1961950/logo.png",
+    "background": "https://cdn.cloudflare.steamstatic.com/steam/apps/1961950/library_hero.jpg",
+    "downloadUrl": "",
+    "steamAppId": 1961950
+  },
+  {
+    "slug": "ys-vi",
+    "title": "Ys VI: The Ark of Napishtim",
+    "kind": "jeu",
+    "status": "Bêta",
+    "progress": 80,
+    "quote": "",
+    "description": "Patch FR avec les accents ajoutés à la police du jeu.",
+    "logo": "https://cdn.cloudflare.steamstatic.com/steam/apps/312540/logo.png",
+    "background": "https://cdn.cloudflare.steamstatic.com/steam/apps/312540/library_hero.jpg",
+    "downloadUrl": "https://sainteresia.vercel.app/jeux",
+    "steamAppId": 312540
+  },
+  {
+    "slug": "steins-gate-reboot",
+    "title": "STEINS;GATE RE:BOOT",
+    "kind": "vn",
+    "status": "En cours",
+    "progress": 5,
+    "description": "Exemple sans images : le titre remplace le logo.",
+    "steamAppId": 4012810
+  }
+]

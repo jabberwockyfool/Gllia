@@ -1,0 +1,14 @@
+[
+  {
+    "name": "Membre 1",
+    "title": "Fondateur",
+    "roles": ["Traduction (japonais)", "Hacking"],
+    "avatar": ""
+  },
+  {
+    "name": "Membre 2",
+    "title": "",
+    "roles": ["Correction"],
+    "avatar": ""
+  }
+]
